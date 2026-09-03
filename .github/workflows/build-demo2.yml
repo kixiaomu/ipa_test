@@ -1,0 +1,10 @@
+name: 手动触发测试x2
+on:
+    workflow_dispatch:
+jobs:
+    test-job:
+        runs-on: macos-latest
+        steps:
+            - name: DEMOxx
+              uses: actions/checkout@v4
+              
