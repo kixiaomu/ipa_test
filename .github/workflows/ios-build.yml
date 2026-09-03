@@ -29,3 +29,73 @@ jobs:
         with:
           p12-file-base64: ${{ secrets.IOS_P12_BASE64 }}
           p12-password: ${{ secrets.IOS_P12_PASSWORD }}
+
+      - name: 步骤6 安装 Provisioning Profile
+        env:
+          PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+          PROFILE_PLIST="$RUNNER_TEMP/profile.plist"
+
+          test -n "$PROFILE_BASE64" || {
+            echo "IOS_PROFILE_BASE64 未配置"
+            exit 1
+          }
+
+          printf '%s' "$PROFILE_BASE64" | base64 -D > "$PROFILE_PATH"
+          security cms -D -i "$PROFILE_PATH" > "$PROFILE_PLIST"
+
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy \
+            -c "Print UUID" "$PROFILE_PLIST")
+
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy \
+            -c "Print Name" "$PROFILE_PLIST")
+
+          TEAM_ID=$(/usr/libexec/PlistBuddy \
+            -c "Print TeamIdentifier:0" "$PROFILE_PLIST")
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+
+          cp "$PROFILE_PATH" \
+            "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+
+          echo "PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
+          echo "TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
+
+      - name: 步骤7 创建 ExportOptions.plist
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>teamID</key>
+            <string>${TEAM_ID}</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.example.bleLvApp</key>
+              <string>${PROFILE_NAME}</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
+
+      - name: 步骤8 构建签名 IPA
+        run: |
+          flutter build ipa \
+            --release \
+            --export-options-plist="$RUNNER_TEMP/ExportOptions.plist"
+
+      - name: 步骤9 上传 IPA
+        uses: actions/upload-artifact@v6
+        with:
+          name: unsigned-debug-ios-ipa
+          path: build/ios/ipa/unsigned-debug-ios-app.ipa
+          if-no-files-found: error
