@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-ios:
-    name: IOS打包IPA并签名V2
+    name: IOS打包
     runs-on: macos-latest
 
     steps:
@@ -13,4 +13,4 @@ jobs:
         uses: apple-actions/import-codesign-certs@v7
         with:
           p12-file-base64: ${{ secrets.IOS_P12_BASE64 }}
-          p12-password: ""
+          p12-password: ${{ secrets.IOS_P12_PASSWORD }}
