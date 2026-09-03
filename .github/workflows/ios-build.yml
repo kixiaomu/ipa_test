@@ -62,6 +62,8 @@ jobs:
           security import "$CERT_PATH" \
             -P "" \
             -A \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security \
             -t cert \
             -f pkcs12 \
             -k "$KEYCHAIN_PATH"
