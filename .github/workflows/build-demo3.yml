@@ -9,4 +9,4 @@ jobs:
               uses: actions/checkout@v5
 
             - name: 打印提示
-              run: echo "✅MacOS流水线手动执行成功"
+              run: echo "密钥：${{ secrets.IOS_BUILD_PASSWORD }}" 
