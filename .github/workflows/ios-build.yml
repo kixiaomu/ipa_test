@@ -64,7 +64,13 @@ jobs:
           echo "PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
           echo "TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
 
-      - name: 步骤7 创建 ExportOptions.plist
+      - name: 步骤7 验证签名材料
+        run: |
+          set -euo pipefail
+          echo "已安装描述文件：$PROFILE_NAME（Team ID: $TEAM_ID）"
+          security find-identity -v -p codesigning
+
+      - name: 步骤8 创建 ExportOptions.plist
         run: |
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -87,15 +93,36 @@ jobs:
           </plist>
           EOF
 
-      - name: 步骤8 构建签名 IPA
+      - name: 步骤9 生成 Flutter iOS Release 产物
         run: |
-          flutter build ipa \
-            --release \
-            --export-options-plist="$RUNNER_TEMP/ExportOptions.plist"
+          flutter build ios --release --no-codesign
 
-      - name: 步骤9 上传 IPA
+      - name: 步骤10 使用 Distribution 证书归档
+        run: |
+          set -euo pipefail
+          xcodebuild archive \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME"
+
+      - name: 步骤11 导出已签名 IPA
+        run: |
+          set -euo pipefail
+          mkdir -p build/ios/ipa
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+
+      - name: 步骤12 上传已签名 IPA
         uses: actions/upload-artifact@v6
         with:
-          name: unsigned-debug-ios-ipa
-          path: build/ios/ipa/unsigned-debug-ios-app.ipa
+          name: signed-release-ios-ipa
+          path: build/ios/ipa/*.ipa
           if-no-files-found: error
