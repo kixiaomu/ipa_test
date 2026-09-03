@@ -67,7 +67,7 @@ jobs:
       - name: 步骤7 验证签名材料
         run: |
           set -euo pipefail
-          echo "已安装描述文件：$PROFILE_NAME（Team ID: $TEAM_ID）"
+          echo "Installed provisioning profile: ${PROFILE_NAME} (Team ID: ${TEAM_ID})"
           security find-identity -v -p codesigning
 
       - name: 步骤8 创建 ExportOptions.plist
