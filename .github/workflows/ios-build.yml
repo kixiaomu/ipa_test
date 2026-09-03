@@ -30,8 +30,25 @@ jobs:
           CERT_PATH="$RUNNER_TEMP signing.p12"
           PROFILE_PATH="$RUNNER_TEMP profile.mobileprovision"
 
-          echo "$P12_BASE64" | base64 --decode > "$CERT_PATH"
-          echo "$PROFILE_BASE64" | base64 --decode > "$PROFILE_PATH"
+          # macOS 自带的 base64 使用 -D 解码；同时检查 Secret 不是空值。
+          test -n "$P12_BASE64" || { echo "IOS_P12_BASE64 is empty"; exit 1; }
+          test -n "$PROFILE_BASE64" || { echo "IOS_PROFILE_BASE64 is empty"; exit 1; }
+          printf '%s' "$P12_BASE64" | base64 -D > "$CERT_PATH"
+          printf '%s' "$PROFILE_BASE64" | base64 -D > "$PROFILE_PATH"
+
+          test -s "$CERT_PATH" || { echo "Decoded p12 is empty"; exit 1; }
+          test -s "$PROFILE_PATH" || { echo "Decoded provisioning profile is empty"; exit 1; }
+
+          # 在导入钥匙串前验证 p12：P12_PASSWORD 为空时应使用 pass:
+          openssl pkcs12 -in "$CERT_PATH" -info -noout \
+            -passin "pass:${P12_PASSWORD}" >/dev/null
+
+          # 验证 provisioning profile 可被 macOS 解码，避免后续 PlistBuddy 报错。
+          security cms -D -i "$PROFILE_PATH" > "$RUNNER_TEMP/profile.plist"
+
+          /usr/libexec/PlistBuddy -c "Print UUID" "$RUNNER_TEMP/profile.plist" >/dev/null
+          /usr/libexec/PlistBuddy -c "Print Name" "$RUNNER_TEMP/profile.plist" >/dev/null
+          /usr/libexec/PlistBuddy -c "Print TeamIdentifier:0" "$RUNNER_TEMP/profile.plist" >/dev/null
 
           security create-keychain \
             -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -55,8 +72,6 @@ jobs:
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
 
           PROFILE_PLIST="$RUNNER_TEMP/profile.plist"
-
-          security cms -D -i "$PROFILE_PATH" > "$PROFILE_PLIST"
 
           PROFILE_UUID=$(/usr/libexec/PlistBuddy \
             -c "Print UUID" "$PROFILE_PLIST")
