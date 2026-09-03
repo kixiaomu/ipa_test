@@ -40,7 +40,9 @@ jobs:
           test -s "$PROFILE_PATH" || { echo "Decoded provisioning profile is empty"; exit 1; }
 
           # 在导入钥匙串前验证 p12：P12_PASSWORD 为空时应使用 pass:
+          # 该证书使用旧版 RC2-40-CBC 加密；OpenSSL 3 需显式启用 legacy provider。
           openssl pkcs12 -in "$CERT_PATH" -info -noout \
+            -legacy \
             -passin "pass:${P12_PASSWORD}" >/dev/null
 
           # 验证 provisioning profile 可被 macOS 解码，避免后续 PlistBuddy 报错。
