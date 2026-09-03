@@ -1,34 +1,16 @@
-name: IOS打包IPA并签名
-on: { workflow_dispatch: }
+name: IOS打包IPA并签名V1
+
+on: 
+  workflow_dispatch:
+
 jobs:
-  build:
+  build-ios:
+    name: IOS打包IPA并签名V2
     runs-on: macos-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with: { channel: stable, cache: true }
-      - name: Install provisioning profile
-        env: { PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }} }
-        run: |
-          set -euo pipefail
-          test -n "$PROFILE_BASE64"
-          p="$RUNNER_TEMP/profile.mobileprovision"
-          printf '%s' "$PROFILE_BASE64" | base64 -D > "$p"
-          security cms -D -i "$p" > "$RUNNER_TEMP/profile.plist"
-          u=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$RUNNER_TEMP/profile.plist")
-          echo "PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print Name' "$RUNNER_TEMP/profile.plist")" >> "$GITHUB_ENV"
-          echo "TEAM_ID=$(/usr/libexec/PlistBuddy -c 'Print TeamIdentifier:0' "$RUNNER_TEMP/profile.plist")" >> "$GITHUB_ENV"
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          cp "$p" "$HOME/Library/MobileDevice/Provisioning Profiles/$u.mobileprovision"
-      - uses: apple-actions/import-codesign-certs@v7
+      - name: P12密钥导入
+        uses: apple-actions/import-codesign-certs@v7
         with:
-          p12-file-base64: ${{ secrets.APPSTORE_CERTIFICATES_FILE_BASE64 }}
-          p12-password: ${{ secrets.APPSTORE_CERTIFICATES_PASSWORD }}
-      - run: flutter pub get
-      - name: Build IPA
-        run: flutter build ipa --release
-      - uses: actions/upload-artifact@v4
-        with:
-          name: signed-ios-ipa
-          path: build/ios/ipa/*.ipa
-          if-no-files-found: error
+          p12-file-base64: ${{ secrets.IOS_P12_BASE64 }}
+          p12-password: ""
