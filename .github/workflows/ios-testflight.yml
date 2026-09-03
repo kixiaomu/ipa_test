@@ -93,16 +93,22 @@ jobs:
       - name: 导出 IPA
         run: |
           set -euo pipefail
-          mkdir -p build/ios/ipa
+          EXPORT_PATH="$RUNNER_TEMP/ipa-export"
+          rm -rf "$EXPORT_PATH"
+          mkdir -p "$EXPORT_PATH" build/ios/ipa
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
-            -exportPath build/ios/ipa \
+            -exportPath "$EXPORT_PATH" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+          IPA_PATH=$(find "$EXPORT_PATH" -maxdepth 1 -type f -name '*.ipa' -print -quit)
+          test -n "$IPA_PATH" || { echo "Exported IPA was not found"; exit 1; }
+          cp "$IPA_PATH" build/ios/ipa/Runner.ipa
+          ls -lh build/ios/ipa/Runner.ipa
 
       - name: 上传到 TestFlight
         uses: apple-actions/upload-testflight-build@v5
         with:
-          app-path: build/ios/ipa/*.ipa
+          app-path: build/ios/ipa/Runner.ipa
           issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
           api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
           api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
